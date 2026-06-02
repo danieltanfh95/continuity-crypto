@@ -1,0 +1,41 @@
+.DS_Store
+.cpcache/
+.clj-kondo/.cache/
+.lsp/.cache/
+target/
+classes/
+out/
+.nrepl-port
+*.log
+logs/
+.idea/
+.vscode/
+.calva/
+.portal/
+.cider-repl-history
+.lein-repl-history
+.lein-failures
+pom.xml
+pom.xml.asc
+.env
+.env.local
+.env.*.local
+secrets/
+*.jfr
+*.hprof
+.test-reports/
+coverage/
+*.cov
+
+# Local agent / editor state (not project source)
+.claude/
+.succession/
+.plans/
+.internal/
+
+# Project-local working-norms surfaces (lab-narrative, not public substrate).
+# Architectural rationale that belongs in the public repo lives in docs/.
+kanban.md
+work-log.md
+signal.md
+decisions.md

@@ -1,0 +1,9 @@
+#kaocha/v1
+{:tests [{:id          :unit
+          :test-paths  ["test"]
+          :ns-patterns [".*-test$"]}]
+ :plugins  [:kaocha.plugin/profiling
+            :kaocha.plugin/randomize]
+ :randomize? true
+ :reporter  kaocha.report/documentation
+ :color?    true}
