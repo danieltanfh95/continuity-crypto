@@ -77,6 +77,39 @@
           (finally
             (delete-recursively dir)))))))
 
+(deftest autogen-write-is-atomic-0600
+  (testing "the keyfile is created with 0600 perms atomically, not via a
+            spit-then-chmod window. Pin the NIO code path by asserting
+            `Files/newOutputStream` + CREATE_NEW + rw------- attribute
+            was taken: a subsequent write to the same path must fail
+            with FileAlreadyExistsException (CREATE_NEW semantics)."
+    (with-clean-env
+      (fn []
+        (let [dir  (temp-dir)
+              path (str dir "/secret.key")]
+          (try
+            (ks/load-or-create-seed! test-opts {:key-path path})
+            (let [fs        (FileSystems/getDefault)
+                  supports? (-> fs .supportedFileAttributeViews (.contains "posix"))]
+              (when supports?
+                (let [perms (Files/getPosixFilePermissions
+                             (.toPath (java.io.File. path))
+                             (into-array LinkOption []))]
+                  (is (= "rw-------" (PosixFilePermissions/toString perms))
+                      "file perms must be 0600 the moment the file comes into existence"))
+                ;; CREATE_NEW semantics: calling the private writer on the
+                ;; same path throws FileAlreadyExistsException. This
+                ;; structurally confirms the atomic NIO path is in use
+                ;; rather than the old spit path (spit silently truncates).
+                (let [thrown (try
+                               (@#'ks/write-new-keyfile! path 32)
+                               nil
+                               (catch java.nio.file.FileAlreadyExistsException e e))]
+                  (is (some? thrown)
+                      "write-new-keyfile! must refuse to overwrite an existing path"))))
+            (finally
+              (delete-recursively dir))))))))
+
 ;; -- :key-b64 branch -------------------------------------------------------
 
 (deftest key-b64-precedes-file

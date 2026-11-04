@@ -27,8 +27,8 @@
    [clojure.java.io :as io]
    [continuity-crypto.envelope :as envelope])
   (:import
-   (java.nio.file Files)
-   (java.nio.file.attribute PosixFilePermissions)
+   (java.nio.file FileSystems Files StandardOpenOption)
+   (java.nio.file.attribute FileAttribute PosixFilePermissions)
    (java.security SecureRandom)))
 
 (defn- blank? [^String s]
@@ -50,22 +50,50 @@
     (.nextBytes (SecureRandom.) bs)
     bs))
 
-(defn- restrict-perms! [path]
-  (try
-    (Files/setPosixFilePermissions
-     path (PosixFilePermissions/fromString "rw-------"))
-    (catch UnsupportedOperationException _
-      (binding [*out* *err*]
-        (println (str "WARN: cannot set POSIX perms on " path
-                      " — non-POSIX filesystem"))))))
+(defn- posix-supported? []
+  (-> (FileSystems/getDefault)
+      .supportedFileAttributeViews
+      (.contains "posix")))
 
-(defn- write-new-keyfile! ^bytes [^String path seed-bytes]
-  (let [seed (generate-secret seed-bytes)
-        f    (io/file path)]
+(defn- write-new-keyfile!
+  "Create the keyfile atomically with 0600 permissions on POSIX
+  filesystems. Prior shape wrote via `spit` (default umask, typically
+  0644) then chmodded to 0600 as a second step, which opened a race
+  window a local attacker could use to read the key between the two
+  operations. The NIO path here combines `CREATE_NEW` with
+  `PosixFilePermissions/asFileAttribute` so the file never exists on
+  disk with any perms other than 0600.
+
+  Non-POSIX filesystems fall back to the spit path with a warning;
+  callers that need hardened perms on Windows must supply the key
+  via `env-var-name-raw` or `:key-b64`."
+  ^bytes [^String path seed-bytes]
+  (let [seed       (generate-secret seed-bytes)
+        f          (io/file path)
+        payload    (.getBytes (pr-str {:secret-b64 (envelope/b64url-encode seed)})
+                              "UTF-8")]
     (when-let [parent (.getParentFile f)]
       (.mkdirs parent))
-    (spit f (pr-str {:secret-b64 (envelope/b64url-encode seed)}))
-    (restrict-perms! (.toPath f))
+    (if (posix-supported?)
+      (let [p    (.toPath f)
+            attr (PosixFilePermissions/asFileAttribute
+                  (PosixFilePermissions/fromString "rw-------"))]
+        ;; Two-step atomic 0600 creation. `createFile` creates the empty
+        ;; file with the perms attribute in one syscall (throws
+        ;; FileAlreadyExistsException if the path already exists — the
+        ;; caller gate `(.exists f) read vs. write` keeps us on the write
+        ;; branch only when the path is free). The subsequent `write`
+        ;; writes the payload into the already-0600 file; perms are
+        ;; untouched.
+        (Files/createFile p (into-array FileAttribute [attr]))
+        (Files/write p payload (into-array StandardOpenOption
+                                           [StandardOpenOption/WRITE
+                                            StandardOpenOption/TRUNCATE_EXISTING])))
+      (do
+        (spit f (String. payload "UTF-8"))
+        (binding [*out* *err*]
+          (println (str "WARN: cannot set POSIX perms on " path
+                        " — non-POSIX filesystem")))))
     seed))
 
 (defn resolve-key-path
