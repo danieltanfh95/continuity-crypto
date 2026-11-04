@@ -18,7 +18,7 @@ Git-dep in `deps.edn`.
 ```clojure
 {:deps
  {io.github.danieltanfh95/continuity-crypto
-  {:git/sha "da8bb4fd8e7e2ff31d35b751a45044f510594f38"}}}
+  {:git/sha "ec9503303102221701614b93649eb457b8376418"}}}
 ```
 
 Clojars publishing is deferred until a downstream consumer requires a Maven coord.
