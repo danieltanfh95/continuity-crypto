@@ -30,13 +30,25 @@ continuity-crypto.canonical  length-prefixed binary canonicalization machinery
 
 No transitive cryptography dependencies introduced beyond what biscuit-java pulls. No BouncyCastle direct dep (fingerprint-lock pulls BC for separate non-substrate purposes; not needed here). No network egress, no telemetry.
 
-## threat-model authority
+## threat-model commitments
 
-The threat model is the same as fingerprint-lock's. Authoritative reference: [`~/Projects/g-daniel/fingerprint-lock/docs/threat-model.md`](../../fingerprint-lock/docs/threat-model.md). Specific commitments:
+The library is a primitive. Its job is to do its cryptographic operations correctly and surface error states cleanly. Higher-level threat-modeling (replay scope, audience binding, revocation authority) belongs to the calling primitive.
 
-- Secret-key bytes never logged anywhere.
-- Secret-key bytes never included in error messages or stack traces.
-- 0600 permissions on any keystore-loader-managed file; the loader refuses to read a file it just wrote without the perm restriction succeeding.
+Commitments the library makes:
+
+- Secret-key bytes are never logged.
+- Secret-key bytes are never included in error messages or stack traces.
+- 0600 permissions on any keystore-loader-managed file. The loader creates the file atomically at those perms and refuses to read a file it just wrote if the perm restriction did not succeed.
 - Test fixtures carrying secret-shaped bytes are marked `THIS IS A TEST KEY DO NOT USE`.
-- Ed25519 the default and preferred algorithm. 32-byte raw pubkeys, 64-byte raw signatures, base64url-unpadded encoding on the wire.
-- SHA-256 of canonical pubkey bytes as the thumbprint pattern (used by both consumers for stable identity references).
+- Ed25519 is the default and preferred algorithm. 32-byte raw pubkeys, 64-byte raw signatures, base64url-unpadded encoding on the wire.
+- `SHA-256(canonical_pubkey_bytes)` as the thumbprint pattern for stable identity references in ledger and grant fields.
+- No network egress in library code. No telemetry.
+
+Out of scope:
+
+- Hardware-key custody. The keystore loader reads raw 32-byte seeds from env, config, or disk only.
+- Encrypted-at-rest keyfiles. The caller is responsible for disk encryption of the containing filesystem.
+- Key escrow and rotation workflow. The library offers load and autogen; rotation ceremony is the caller's.
+- Replay-cache storage. Callers that need replay protection own the cache.
+
+For disclosure channels see [`../SECURITY.md`](../SECURITY.md).

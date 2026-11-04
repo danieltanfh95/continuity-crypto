@@ -57,36 +57,51 @@ Parameterized 32-byte secret loader. Same precedence chain across all callers: e
 
 ## `continuity-crypto.biscuit`
 
-biscuit-java wrappers + the thumbprint primitive.
+biscuit-java wrappers plus the thumbprint primitive. All operations that
+delegate to biscuit-java normalize the per-method Java exception contract
+into `ex-info` with `{:op <op-key> :cause <message>}` so callers handle one
+exception shape.
 
 ```clojure
 (keypair-from-seed ^bytes seed) => ^KeyPair
 ;; Construct the (immutable, thread-safe) biscuit-java KeyPair from a
 ;; 32-byte Ed25519 seed.
 
-(root-public-key-hex ^KeyPair kp) => ^String
-;; Uppercase hex of the root Ed25519 public key, suitable for hosts to
-;; pin and verify tokens offline.
+(root-public-key ^KeyPair kp) => ^PublicKey
+;; Return the biscuit PublicKey. Pass this into `verify`.
 
-(pubkey-thumbprint ^KeyPair kp) => ^bytes
-;; SHA-256(canonical_pubkey_bytes). 32 bytes. Used wherever a principal,
-;; lineage, or actor needs a stable identifier in a ledger or grant field.
-;; Callers wanting a string form should b64url-encode the result themselves.
+(root-public-key-hex ^KeyPair kp) => ^String
+;; Uppercase hex of the root Ed25519 public key, in the form hosts pin to
+;; verify tokens offline.
+
+(pubkey-bytes ^PublicKey pk) => ^bytes
+;; Raw 32-byte canonical Ed25519 pubkey bytes. The form that goes into a
+;; thumbprint, a wire payload, or a registry.
+
+(pubkey-thumbprint ^PublicKey pk) => ^bytes
+;; SHA-256(canonical_pubkey_bytes). 32 bytes. The stable identifier
+;; pattern both fingerprint-lock and continuity-witness use to reference
+;; a principal, lineage, or actor in ledger and grant fields. Callers
+;; wanting a string form should b64url-encode (or hex-encode) the result
+;; themselves.
 
 (serialize ^Biscuit token) => ^String
-;; Base64url-unpadded serialization of the token.
-
-(deserialize ^String b64-token ^PublicKey root-pubkey) => ^Biscuit
-;; Verify root signature with the explicit root pubkey, then return the
-;; parsed Biscuit. Throws on signature failure or malformed input.
+;; Base64url-unpadded serialization of the token. Throws ex-info
+;; {:op :serialize :cause ...} on biscuit-java error.
 
 (verify ^String b64-token ^PublicKey root-pubkey) => ^Biscuit
-;; Alias for deserialize. Reads as "verify the root signature" at the
-;; caller's callsite without committing to a single name.
+;; Parse and verify the base64url-encoded biscuit token against an explicit
+;; root PublicKey. Returns the verified Biscuit on success. Throws ex-info
+;; {:op :verify :cause ...} on signature failure, malformed input, or any
+;; biscuit-java error. The caller's host-pinning contract lives here —
+;; supply the pubkey you trust, not one read off the token.
 
 (attenuate ^Biscuit token ^Block block) => ^Biscuit
-;; Append-only block attenuation. Returns a new token; the original is
-;; immutable.
+;; Append an attenuation block, returning a new biscuit. The caller
+;; constructs the block via biscuit-java's builder (typically
+;; `(.create_block token)` followed by `.add_check` / `.add_fact`); the
+;; substrate signs and appends. Throws ex-info {:op :attenuate :cause ...}
+;; on biscuit-java error. The original token is immutable.
 ```
 
 ## `continuity-crypto.canonical`
@@ -104,9 +119,10 @@ Length-prefixed binary canonicalization machinery. Caller supplies a version tag
 ;;
 ;; :utf8  — value must be a string; UTF-8-encoded length must be ≤ max-bytes.
 ;; :bytes — value must be a byte array of length exactly max-bytes.
-;; Any other field-type keyword → ex-info "unsupported canonical field type".
-;; Length-overrun on :utf8 or length-mismatch on :bytes → ex-info with
-;; {:field-index :type :max :actual} keys.
+;; Any other field-type keyword → ex-info "unsupported canonical field type"
+;; with {:field-index :type}.
+;; Length-overrun on :utf8 → ex-info with {:field-index :type :max :actual}.
+;; Length-mismatch on :bytes → ex-info with {:field-index :type :expected :actual}.
 ```
 
 Both `FPL2\n` (fingerprint-lock's request envelope) and `CWL1\n` (continuity-witness's ledger entry) are callers of `write` with their own tag and their own field tuples; neither field vocabulary lives in this library.
