@@ -39,8 +39,6 @@
     (throw (ex-info "test precondition: CONTINUITY_CRYPTO_TEST_KEY_PATH must be unset" {})))
   (f))
 
-;; -- autogen branch --------------------------------------------------------
-
 (deftest autogen-writes-and-restores
   (with-clean-env
     (fn []
@@ -78,11 +76,9 @@
             (delete-recursively dir)))))))
 
 (deftest autogen-write-is-atomic-0600
-  (testing "the keyfile is created with 0600 perms atomically, not via a
-            spit-then-chmod window. Pin the NIO code path by asserting
-            `Files/newOutputStream` + CREATE_NEW + rw------- attribute
-            was taken: a subsequent write to the same path must fail
-            with FileAlreadyExistsException (CREATE_NEW semantics)."
+  (testing "keyfile is created at 0600 atomically. The private writer must
+            refuse to overwrite an existing path (CREATE_NEW semantics)
+            rather than silently truncating like spit."
     (with-clean-env
       (fn []
         (let [dir  (temp-dir)
@@ -97,10 +93,6 @@
                              (into-array LinkOption []))]
                   (is (= "rw-------" (PosixFilePermissions/toString perms))
                       "file perms must be 0600 the moment the file comes into existence"))
-                ;; CREATE_NEW semantics: calling the private writer on the
-                ;; same path throws FileAlreadyExistsException. This
-                ;; structurally confirms the atomic NIO path is in use
-                ;; rather than the old spit path (spit silently truncates).
                 (let [thrown (try
                                (@#'ks/write-new-keyfile! path 32)
                                nil
@@ -109,8 +101,6 @@
                       "write-new-keyfile! must refuse to overwrite an existing path"))))
             (finally
               (delete-recursively dir))))))))
-
-;; -- :key-b64 branch -------------------------------------------------------
 
 (deftest key-b64-precedes-file
   (with-clean-env
@@ -127,16 +117,12 @@
           (finally
             (delete-recursively dir)))))))
 
-;; -- env-raw branch --------------------------------------------------------
-
 (deftest env-raw-overrides-config
   (testing "this branch is implicitly covered when the env var is unset
             (autogen and key-b64 tests). Setting an env var in-process is not
             portable in Java; the precedence cond branches by env-name lookup
             and we test that path indirectly via the wrong-length test below."
     (is true)))
-
-;; -- length validation -----------------------------------------------------
 
 (deftest wrong-length-key-b64-refused
   (with-clean-env
@@ -168,8 +154,6 @@
             (is (= path (:path (ex-data thrown)))))
           (finally
             (delete-recursively dir)))))))
-
-;; -- resolve-key-path ------------------------------------------------------
 
 (deftest resolve-key-path-precedence
   (with-clean-env

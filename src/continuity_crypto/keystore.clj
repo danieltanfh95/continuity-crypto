@@ -18,8 +18,6 @@
   caller-supplied `:seed-bytes` and throws `ex-info` with `{:expected :got}`
   so callers can pattern on the shape rather than the message string.
 
-  Source pattern: continuity-auth's `biscuit-token/load-or-create-seed!` and
-  the sibling `ip-hmac/load-or-create-key!` (both lifted into one function).
   Secret-key bytes are never logged anywhere; never included in error
   messages or stack traces."
   (:require
@@ -56,17 +54,12 @@
       (.contains "posix")))
 
 (defn- write-new-keyfile!
-  "Create the keyfile atomically with 0600 permissions on POSIX
-  filesystems. Prior shape wrote via `spit` (default umask, typically
-  0644) then chmodded to 0600 as a second step, which opened a race
-  window a local attacker could use to read the key between the two
-  operations. The NIO path here combines `CREATE_NEW` with
-  `PosixFilePermissions/asFileAttribute` so the file never exists on
-  disk with any perms other than 0600.
-
-  Non-POSIX filesystems fall back to the spit path with a warning;
-  callers that need hardened perms on Windows must supply the key
-  via `env-var-name-raw` or `:key-b64`."
+  "Create the keyfile at 0600. On POSIX filesystems the file never exists
+  on disk with any other perms (CREATE_NEW + PosixFilePermissions
+  attribute in one syscall, then write into the already-0600 file).
+  Non-POSIX filesystems fall back to `spit` with a warning to `*err*`;
+  callers that need hardened perms there must supply the key via
+  `env-var-name-raw` or `:key-b64`."
   ^bytes [^String path seed-bytes]
   (let [seed       (generate-secret seed-bytes)
         f          (io/file path)
@@ -78,13 +71,6 @@
       (let [p    (.toPath f)
             attr (PosixFilePermissions/asFileAttribute
                   (PosixFilePermissions/fromString "rw-------"))]
-        ;; Two-step atomic 0600 creation. `createFile` creates the empty
-        ;; file with the perms attribute in one syscall (throws
-        ;; FileAlreadyExistsException if the path already exists — the
-        ;; caller gate `(.exists f) read vs. write` keeps us on the write
-        ;; branch only when the path is free). The subsequent `write`
-        ;; writes the payload into the already-0600 file; perms are
-        ;; untouched.
         (Files/createFile p (into-array FileAttribute [attr]))
         (Files/write p payload (into-array StandardOpenOption
                                            [StandardOpenOption/WRITE

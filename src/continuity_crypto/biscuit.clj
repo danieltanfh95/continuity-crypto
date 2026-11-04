@@ -1,11 +1,10 @@
 (ns continuity-crypto.biscuit
-  "biscuit-java wrappers + the Ed25519 pubkey thumbprint primitive.
-
-  The substrate handles cryptographic operations only: KeyPair construction
-  from a 32-byte Ed25519 seed, root-pubkey export (hex + raw bytes + SHA-256
-  thumbprint), and the three biscuit-token primitives both consuming
-  primitives need at the wire level — serialize, verify (parse + signature
-  check against an explicit root pubkey), and attenuate (append-block).
+  "biscuit-java wrappers plus the Ed25519 pubkey thumbprint primitive.
+  Cryptographic operations only. KeyPair construction from a 32-byte
+  Ed25519 seed, root-pubkey export (hex, raw bytes, SHA-256 thumbprint),
+  and the three biscuit-token primitives both consuming primitives need
+  at the wire level — serialize, verify (parse + signature check against
+  an explicit root pubkey), and attenuate (append-block).
 
   Domain semantics — which facts to mint, which checks to add, what an
   audience means — stay with the caller. The caller builds the
@@ -13,14 +12,10 @@
   directly (`com.clevercloud.biscuit.token.builder.*`); the substrate
   signs/verifies/serializes the result.
 
-  All wrappers normalize biscuit-java's checked Java exceptions
-  (`Error`, `SignatureException`, `InvalidKeyException`,
-  `NoSuchAlgorithmException`, `Error$FormatError`, etc.) into `ex-info`
-  with `:op` and `:cause` keys so callers handle one exception shape rather
-  than the per-method Java contract.
-
-  biscuit-java is pinned at `org.biscuitsec/biscuit 2.3.1` in deps.edn;
-  package: `com.clevercloud.biscuit.*`."
+  All wrappers normalize biscuit-java's checked Java exceptions into
+  `ex-info` with `:op` and `:cause` keys so callers handle one exception
+  shape rather than the per-method Java contract. Package:
+  `com.clevercloud.biscuit.*`."
   (:import
    (com.clevercloud.biscuit.crypto KeyPair PublicKey)
    (com.clevercloud.biscuit.token Biscuit)

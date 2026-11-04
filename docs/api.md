@@ -38,21 +38,22 @@ Pure base64url codec, plus the small byte-array primitives the rest of the libra
 
 ## `continuity-crypto.keystore`
 
-Parameterized 32-byte secret loader. Same precedence chain across all callers: env-raw → env-b64 → config-b64 → keyfile → autogen.
+Parameterized 32-byte secret loader. Precedence `env-var-name-raw` → `:key-b64` → keyfile → autogen. The keyfile path itself resolves `env-var-name-key-path` → `:key-path` → `:default-path`.
 
 ```clojure
 (load-or-create-seed! opts config) => ^bytes
-;; opts = {:env-var-name-raw      "CONTINUITY_AUTH_BISCUIT_ROOT_KEY"
-;;         :env-var-name-key-path "CONTINUITY_AUTH_BISCUIT_ROOT_KEY_PATH"
-;;         :default-path          "/var/lib/continuity-auth/biscuit-root.key"
+;; opts = {:env-var-name-raw      "MYAPP_ROOT_KEY"
+;;         :env-var-name-key-path "MYAPP_ROOT_KEY_PATH"
+;;         :default-path          "/var/lib/myapp/root.key"
 ;;         :seed-bytes            32
-;;         :label                 "biscuit root"}
+;;         :label                 "myapp root"}
 ;; config = {:key-b64  <optional-b64-string>
 ;;           :key-path <optional-path-override>}
 ;;
-;; Returns 32-byte array on success. Throws ex-info with :label / :expected /
-;; :got on wrong-length input. Writes 0600 keyfile on autogen branch; refuses
-;; to silently proceed on POSIX-perm failure (warns to *err* on non-POSIX FS).
+;; Returns a 32-byte array on success. Throws ex-info with :expected / :got
+;; on wrong-length input (and :path on the keyfile branch). Writes a 0600
+;; keyfile atomically on the autogen branch; warns to *err* on non-POSIX
+;; filesystems where perm restriction cannot be enforced.
 ```
 
 ## `continuity-crypto.biscuit`

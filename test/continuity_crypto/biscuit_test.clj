@@ -18,16 +18,13 @@
        (every? true? (map = (seq a) (seq b)))))
 
 (defn- mint-trivial
-  "Mint a minimal biscuit with one authority fact, signed by `kp`.
-  We use biscuit-java's builder directly — minting domain facts is the
-  caller's job, not the substrate's. This helper exists for round-trip
-  tests only."
+  "Mint a minimal biscuit with one authority fact via biscuit-java's
+  builder directly. Minting domain facts is the caller's job, not the
+  substrate's."
   ^Biscuit [^KeyPair kp]
   (-> (Biscuit/builder kp)
       (.add_authority_fact "principal(\"test\")")
       (.build)))
-
-;; -- keypair / pubkey ------------------------------------------------------
 
 (deftest keypair-from-seed-is-deterministic
   (testing "same seed → same root pubkey; different seeds → different pubkeys"
@@ -42,8 +39,6 @@
   (let [kp (cc-biscuit/keypair-from-seed (fixed-seed))
         bs (cc-biscuit/pubkey-bytes (cc-biscuit/root-public-key kp))]
     (is (= 32 (alength ^bytes bs)))))
-
-;; -- pubkey-thumbprint -----------------------------------------------------
 
 (deftest pubkey-thumbprint-is-32-and-stable
   (let [kp1 (cc-biscuit/keypair-from-seed (fixed-seed))
@@ -68,8 +63,6 @@
           expect (.digest md pk-bs)
           actual (cc-biscuit/pubkey-thumbprint pk)]
       (is (ba= expect actual)))))
-
-;; -- serialize / verify round-trip -----------------------------------------
 
 (deftest serialize-and-verify-round-trip
   (testing "a minted token serializes to base64url and verifies back to a Biscuit"
@@ -102,8 +95,6 @@
                    (catch clojure.lang.ExceptionInfo e e))]
       (is (some? thrown))
       (is (= :verify (:op (ex-data thrown)))))))
-
-;; -- attenuate -------------------------------------------------------------
 
 (deftest attenuate-appends-block-and-still-verifies
   (testing "attenuation produces a new biscuit that still verifies under the

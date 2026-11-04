@@ -10,8 +10,6 @@
 
 (defn- bytes-of [& xs] (byte-array (map unchecked-byte xs)))
 
-;; -- basic shape -----------------------------------------------------------
-
 (deftest write-emits-version-tag-then-length-prefixed-fields
   (testing "single :bytes field produces [tag, len-BE-4, value]"
     (let [tag    "TAG1\n"
@@ -39,8 +37,6 @@
       (is (= 3 (env/uint32-be-read out (+ o 4 2))))
       (is (ba= b (java.util.Arrays/copyOfRange ^bytes out
                                                (+ o 4 2 4) (+ o 4 2 4 3)))))))
-
-;; -- type behavior ---------------------------------------------------------
 
 (deftest utf8-field-encoded-as-utf8
   (let [out    (canonical/write "T\n" [[:utf8 32 "héllo"]])
@@ -84,18 +80,12 @@
       (is (= :int (:type (ex-data thrown))))
       (is (= 0 (:field-index (ex-data thrown)))))))
 
-;; -- FPL2 byte-for-byte parity --------------------------------------------
-;;
-;; Goal: prove `canonical/write` with FPL2 inputs produces the exact bytes
-;; that continuity-auth's `envelope/canonical-bytes` produces today. This is
-;; the regression guard for the fingerprint-lock refactor.
-;;
-;; We reproduce continuity-auth's expected output manually with the same
-;; encode primitives the library exposes, then assert equality.
+;; FPL2 byte-for-byte parity against a hand-rolled layout. Guards against
+;; silent drift in `canonical/write` versus the format fingerprint-lock
+;; signs with.
 
 (defn- fpl2-canonical-expected
-  "Replicate continuity-auth.envelope/canonical-bytes layout for the FPL2
-  request envelope, using continuity-crypto.envelope primitives directly."
+  "FPL2 request-envelope layout, built directly from envelope primitives."
   ^bytes [{:keys [method path body-sha256 ts nonce fp-digest host-user-id key-id]}]
   (let [tag       (env/utf8-encode "FPL2\n")
         method-b  (env/utf8-encode method)

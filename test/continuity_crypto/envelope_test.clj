@@ -20,8 +20,7 @@
             out (env/b64url-decode s)]
         (is (ba= in out)))))
 
-  (testing "encoding is URL-safe and unpadded"
-    ;; "+" and "/" never appear in URL-safe alphabet; "=" never appears unpadded.
+  (testing "encoding is URL-safe and unpadded (no + / = chars)"
     (let [s (env/b64url-encode (bytes-of 0xfb 0xff 0xff 0xfe))]
       (is (not (re-find #"[+/=]" s))))))
 

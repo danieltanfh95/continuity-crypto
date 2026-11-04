@@ -1,14 +1,8 @@
 (ns continuity-crypto.envelope
-  "Base64url-unpadded codec plus the small byte-array primitives the rest of
-  the library composes over.
-
-  Pure substrate: no domain knowledge, no envelope schema, no version tags.
-  Each caller layers its own canonical-signing version tag (see
-  `continuity-crypto.canonical`) on top.
-
-  Extracted from continuity-auth's `envelope.cljc` (the cross-platform
-  signing-input codec); the JVM half is preserved verbatim, the
-  ClojureScript half is dropped — this library is JVM-only.")
+  "Base64url-unpadded codec plus the byte-array primitives the rest of
+  the library composes over. No domain knowledge, no envelope schema, no
+  version tags. Each caller layers its own canonical-signing version tag
+  (see `continuity-crypto.canonical`) on top.")
 
 (defn utf8-encode
   "Encode a Clojure string to a byte array using UTF-8. nil input → nil."

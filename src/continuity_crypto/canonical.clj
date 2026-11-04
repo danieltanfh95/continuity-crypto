@@ -6,22 +6,17 @@
     for each field:
       uint32-BE(byte-len) || raw bytes
 
-  Each caller supplies its own version-tag literal (e.g. continuity-auth's
-  `FPL2\\n` request-envelope tag, continuity-witness's `CWL1\\n` ledger-entry
-  tag) and its own ordered field tuples. The library knows the machinery;
-  the library does not know which fields exist or what they mean.
+  Each caller supplies its own version-tag literal (e.g. `FPL2\\n`,
+  `CWL1\\n`) and its own ordered field tuples. The library knows the
+  machinery; it does not know which fields exist or what they mean.
 
   No JSON canonicalization. No schema-as-data DSL. No Malli dep. Caller
-  passes inline `[type max-size value]` tuples and accepts the small price
-  of repeating the schema at each callsite in exchange for a substrate that
-  introduces no new vocabulary.
+  passes inline `[type max-size value]` tuples at each callsite in
+  exchange for a substrate that introduces no new vocabulary.
 
   Supported types in v0.1:
     :utf8  — string value; UTF-8-encoded byte length must be ≤ max-size.
-    :bytes — byte-array value; byte length must equal max-size exactly.
-
-  Source: continuity-auth's `envelope/canonical-bytes` (the FPL2 producer);
-  carved out behind the caller-parameterized API."
+    :bytes — byte-array value; byte length must equal max-size exactly."
   (:require
    [continuity-crypto.envelope :as envelope]))
 
